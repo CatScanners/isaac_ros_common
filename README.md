@@ -1,3 +1,22 @@
+# Fork of Isaac ROS Common for Catscanners
+
+Contains dockerfiles and entrypoint additions for use with https://github.com/CatScanners/find-my-kitten
+
+Running:
+
+```
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common && ./scripts/run_dev.sh -i "ros2_humble.catscanners.test" -a "-v /usr/local/zed/resources/:/usr/local/zed/resources/"
+```
+
+Changes compared to upstream:
+- Added docker/Dockerfile.catscanners
+- Added docker/Dockerfile.test
+- Changed this README
+
+This software contains source code provided by NVIDIA Corporation.
+
+**Original README below**
+
 # Isaac ROS Common
 
 Dockerfiles and scripts for development using the Isaac ROS suite.

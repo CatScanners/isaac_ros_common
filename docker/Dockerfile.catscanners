@@ -6,7 +6,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
-## Download dependencies for zed SDK installation RUN file
+ENV CS_ROOT=/catscanners
+
+# Download dependencies for zed SDK installation RUN file
 RUN apt-get install -y --no-install-recommends \
     lsb-release \
     wget \
@@ -16,7 +18,8 @@ RUN apt-get install -y --no-install-recommends \
     sudo \
     apt-transport-https
 
-## isaac_ros_yolov8 deps
+# isaac_ros_yolov8 deps
+# https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_yolov8/index.html
 RUN --mount=type=cache,target=/var/cache/apt \
 apt-get update && apt-get install -y \
     ros-humble-isaac-ros-yolov8 \
@@ -26,7 +29,9 @@ apt-get update && apt-get install -y \
     ros-humble-isaac-ros-stereo-image-proc \
     ros-humble-isaac-ros-zed
 
-## ZED SDK itself
+# ZED SDK
+# https://nvidia-isaac-ros.github.io/getting_started/hardware_setup/sensors/zed_setup.html
+# https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/release-3.2/docker/scripts/install-zed-aarch64.sh
 RUN --mount=type=cache,target=/var/cache/apt \
     wget -q --no-check-certificate -O ZED_SDK_Linux.run https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Tegra_L4T36.4_v4.2.2.zstd.run \
     && chmod 777 ./ZED_SDK_Linux.run \
@@ -36,13 +41,18 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && rm -rf ZED_SDK_Linux.run \
     && rm -rf /var/lib/apt/lists/*
 
-## TODO: zed-ros2-wrapper
-## https://github.com/stereolabs/zed-ros2-wrapper/blob/master/docker/Dockerfile.l4t-humble
-
+# Note: above requires chown -hR /usr/local/zed on devkit, but doesn't appear to be the case on baseboard - reason unknown 
+    
+# zed-ros2-wrapper
+# https://github.com/stereolabs/zed-ros2-wrapper/blob/master/docker/Dockerfile.l4t-humble
 RUN --mount=type=cache,target=/var/cache/apt \
-    mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
+    mkdir -p ${CS_ROOT}/src && cd ${CS_ROOT}/src \
     && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper && cd .. \
     && apt update \
     && apt-get update \
     && rosdep install --from-paths src/zed-ros2-wrapper --ignore-src -r -y
-#     && colcon build --symlink-install --packages-above zed_wrapper
+
+RUN cd ${CS_ROOT} && source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
+
+# Might require chmod +x /catscanners/install/local_setup.sh && source /catscanners/install/local_setup.sh
+RUN echo "source ${CS_ROOT}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc
