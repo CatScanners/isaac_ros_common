@@ -1,0 +1,48 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS zed
+
+
+# disable terminal interaction for apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+ENV ZED_ROOT=/workspaces/zed_ws
+
+# Download dependencies for zed SDK installation RUN file
+RUN apt-get install -y --no-install-recommends \
+    lsb-release \
+    wget \
+    less \
+    zstd \
+    udev \
+    sudo \
+    apt-transport-https
+
+# ZED SDK
+# https://nvidia-isaac-ros.github.io/getting_started/hardware_setup/sensors/zed_setup.html
+# https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/release-3.2/docker/scripts/install-zed-aarch64.sh
+RUN --mount=type=cache,target=/var/cache/apt \
+    wget -q --no-check-certificate -O ZED_SDK_Linux.run https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Tegra_L4T36.4_v4.2.2.zstd.run \
+    && chmod 777 ./ZED_SDK_Linux.run \
+    && ./ZED_SDK_Linux.run silent skip_od_module skip_python skip_drivers \
+    && ln -sf /usr/lib/aarch64-linux-gnu/tegra/libv4l2.so.0 /usr/lib/aarch64-linux-gnu/libv4l2.so \
+    && rm -rf /usr/local/zed/resources/* \
+    && rm -rf ZED_SDK_Linux.run \
+    && rm -rf /var/lib/apt/lists/*
+
+# Note: above requires chown -hR /usr/local/zed on devkit, but doesn't appear to be the case on baseboard - reason unknown 
+
+# zed-ros2-wrapper
+# https://github.com/stereolabs/zed-ros2-wrapper/blob/master/docker/Dockerfile.l4t-humble
+RUN --mount=type=cache,target=/var/cache/apt \
+    mkdir -p ${ZED_ROOT}/src && cd ${ZED_ROOT}/src \
+    && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper && cd .. \
+    && apt update \
+    && apt-get update \
+    && rosdep install --from-paths src/zed-ros2-wrapper --ignore-src -r -y --rosdistro humble
+
+RUN cd ${ZED_ROOT} && source ${ROS_ROOT}/setup.bash && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
+
+# Might require chmod +x /catscanners/install/local_setup.sh && source /catscanners/install/local_setup.sh
+RUN echo "source ${ZED_ROOT}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc

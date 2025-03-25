@@ -5,12 +5,16 @@ Contains dockerfiles and entrypoint additions for use with https://github.com/Ca
 Running:
 
 ```
-cd ${ISAAC_ROS_WS}/src/isaac_ros_common && ./scripts/run_dev.sh -i "ros2_humble.catscanners.test" -a "-v /usr/local/zed/resources/:/usr/local/zed/resources/"
+cd ${ISAAC_ROS_WS}/src/isaac_ros_common && ./scripts/run_dev.sh -i "ros2_humble.px4.zed.yolo.catscanners" -a "-v /usr/local/zed/resources/:/usr/local/zed/resources/"
 ```
+
+Note that some directories/files may need a `sudo chown -hR admin <file>` or `sudo chmod 777 -R <file>` inside the container (probably some docker permission matter?)
 
 Changes compared to upstream:
 - Added docker/Dockerfile.catscanners
-- Added docker/Dockerfile.test
+- Added docker/Dockerfile.px4
+- Added docker/Dockerfile.yolo
+- Added docker/Dockerfile.zed
 - Changed this README
 
 This software contains source code provided by NVIDIA Corporation.

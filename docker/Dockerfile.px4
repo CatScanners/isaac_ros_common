@@ -1,0 +1,19 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS px4
+
+# disable terminal interaction for apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+ENV PX4_ROOT=/workspaces/px4_ws
+
+RUN mkdir -p ${PX4_ROOT}/src && cd ${PX4_ROOT}/src \
+    && git clone https://github.com/PX4/px4_msgs.git -b release/1.15 \
+    && cd .. && rosdep install --from-paths src/px4_msgs --ignore-src -r -y --rosdistro humble
+
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
+    && cd $PX4_ROOT \
+    && colcon build --symlink-install --parallel-workers $(nproc) --packages-select px4_msgs
+
+RUN echo "source ${PX4_ROOT}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc
