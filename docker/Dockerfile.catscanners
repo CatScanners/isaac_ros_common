@@ -10,7 +10,7 @@ SHELL ["/bin/bash", "-c"]
 ARG DEPTHAI=true
 
 # Update apt-get and install basic dependencies
-RUN  apt-get update && apt-get upgrade -y && apt-get install -y \
+RUN  apt-get update && apt-get install -y \
     sudo \
     curl \
     gnupg2 \
