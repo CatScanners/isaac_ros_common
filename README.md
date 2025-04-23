@@ -15,6 +15,8 @@ Changes compared to upstream:
 - Added docker/Dockerfile.px4
 - Added docker/Dockerfile.yolo
 - Added docker/Dockerfile.zed
+- Added docker/Dockerfile.simulation
+    - Currently overwrites base protobuf 26.0 with 12.4 to build PX4 from source. Need to configure to point to separate build
 - Changed this README
 
 This software contains source code provided by NVIDIA Corporation.
