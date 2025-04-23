@@ -1,0 +1,80 @@
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE} AS simulation
+
+# Avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WS_GROUP=cs_simulation
+ENV CS_SIM_WS=/workspaces/simulation
+
+RUN groupadd ${WS_GROUP}
+
+# Update apt-get and install basic dependencies
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y \
+    sudo \
+    curl \
+    gnupg2 \
+    lsb-release \
+    ca-certificates \
+    python3-pip \
+    python3-venv \
+    build-essential \
+    locales \
+    libopencv-dev=4.5.4+dfsg-9ubuntu4 \
+    tzdata
+
+    # wget
+
+WORKDIR ${CS_SIM_WS}
+
+RUN chown -hR root:${WS_GROUP} ${CS_SIM_WS} && chmod -R g+rwxs ${CS_SIM_WS}
+
+# Clone and setup PX4-Autopilot fork
+RUN git clone --single-branch --recursive https://github.com/PX4/PX4-Autopilot.git -b v1.15.4
+
+
+# Setup PX4-simulation
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y \
+    gcc-arm-none-eabi \
+    gdb-arm-none-eabi \
+    wget
+
+# gz-msgs deps due to weird protobuf dependency issues otherwise
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install --reinstall -y \
+    libprotobuf-dev=3.12.4-1ubuntu7.22.04.2 \
+    libprotobuf23=3.12.4-1ubuntu7.22.04.2 \
+    libprotobuf-lite23=3.12.4-1ubuntu7.22.04.2 \
+    libprotoc23=3.12.4-1ubuntu7.22.04.2 \
+    libprotoc-dev=3.12.4-1ubuntu7.22.04.2 \
+    protobuf-compiler=3.12.4-1ubuntu7.22.04.2
+
+# patch: not my proudest work - this became a string around protobuf 3.15.x but the ubuntu apt repository only has 3.12.x.
+# https://github.com/protocolbuffers/protobuf/blob/4b770cabd7ff042283280bd76b6635650a04aa8a/src/google/protobuf/stubs/casts.h
+# RUN sed -i 's/\bbit_cast_with_different_sizes\b/"bit_cast_with_different_sizes"/g' /usr/include/google/protobuf/stubs/casts.h
+
+# RUN apt-mark hold libprotobuf-dev protobuf-compiler libprotoc-dev
+
+RUN cd PX4-Autopilot && bash ./Tools/setup/ubuntu.sh --no-nuttx
+    
+RUN cd PX4-Autopilot && make px4_sitl
+
+# # Clone Micro-XRCE-DDS-Agent repo  
+# RUN git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+
+# Setup Micro-XRCE-DDS-Agent
+# RUN cd Micro-XRCE-DDS-Agent \
+
+#   && mkdir build \
+#   && cd build \
+#   && cmake .. \
+#   && make -j$(nproc) \
+#   && make install \
+#   && ldconfig /usr/local/lib/
+
+# Install the ROS2 Gazebo bridge package
+# RUN sudo apt install ros-humble-ros-gzharmonic
+
+# ADD QGround Install 
+# sudo chown -hR admin .
