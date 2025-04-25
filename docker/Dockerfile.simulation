@@ -27,7 +27,9 @@ RUN --mount=type=cache,target=/var/cache/apt \
 
 WORKDIR ${CS_SIM_WS}
 
-RUN chown -hR root:${WS_GROUP} ${CS_SIM_WS} && chmod g+s ${CS_SIM_WS}
+# Setting dir ownership and inheritance
+RUN chown -hR :${WS_GROUP} ${CS_SIM_WS} && chmod g+s ${CS_SIM_WS}
+RUN setfacl -dm g:${WS_GROUP}:rwx ${CS_SIM_WS}
 
 # Clone and setup PX4-Autopilot fork
 RUN git clone --single-branch --recursive https://github.com/PX4/PX4-Autopilot.git -b v1.15.4
@@ -66,25 +68,27 @@ RUN cd PX4-Autopilot && bash ./Tools/setup/ubuntu.sh --no-nuttx
     
 RUN cd PX4-Autopilot && make px4_sitl
 
-# # Clone Micro-XRCE-DDS-Agent repo  
-# RUN git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+# # # Clone Micro-XRCE-DDS-Agent repo  
+RUN git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
 
 # Setup Micro-XRCE-DDS-Agent
-# RUN cd Micro-XRCE-DDS-Agent \
-#   && mkdir build \
-#   && cd build \
-#   && cmake .. \
-#   && make -j$(nproc) \
-#   && make install \
-#   && ldconfig /usr/local/lib/
+RUN cd Micro-XRCE-DDS-Agent \
+  && mkdir build \
+  && cd build \
+  && cmake .. \
+  && make -j$(nproc) \
+  && make install \
+  && ldconfig /usr/local/lib/
 
 # Install the ROS2 Gazebo bridge package
-# RUN sudo apt install ros-humble-ros-gzharmonic
+# GZ humble + harmonic doesn't have prebuilt binaries for ARM64.. building from source might work?
+# RUN --mount=type=cache,target=/var/cache/apt \
+#     apt-get install -y ros-humble-ros-gzharmonic
 
-# ADD QGround Install 
+# # ADD QGround Install
 
-# Another bandaid fix. Should configure permissions such that group perms equal to user (= inheritable write)
-RUN chmod -R 775 ${CS_SIM_WS}
+# # Another bandaid fix. Should configure permissions such that group perms equal to user (= inheritable write)
+# RUN chmod -R 775 ${CS_SIM_WS}
 
 # Copy any script addition updates over. Could be a separate layer (basically just meant to ensure changes are applied since base is usually cached)
 RUN mkdir -p /usr/local/bin/scripts/entrypoint_additions
