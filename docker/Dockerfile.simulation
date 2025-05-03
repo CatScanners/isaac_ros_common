@@ -1,6 +1,9 @@
 ARG BASE_IMAGE=ubuntu:22.04
 FROM ${BASE_IMAGE} AS simulation
 
+# Nonworking sim Dockerfile as Gz humble + harmonic doesn't have ARM binaries
+# Should be tried for Isaac ROS on x86 (e.g. via WSL2)
+
 # Avoid prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WS_GROUP=cs_simulation
