@@ -1,0 +1,94 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS catscanners_ws
+
+# This is the Dockerfile for the catscanners ROS workspace, including:
+# - px4_msgs (tag release/1.15)
+# - microxrcedds_agent (tag v3.0.0)
+# - vision_package (main branch)
+# - px4_handler (main branch)
+
+# disable terminal interaction for apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+ENV WS_GROUP=catscanners_ws
+ENV CS_WS=/workspaces/catscanners_ws
+
+# Most of these should be redundant due to the expected base images (aarch64.ros2_humble)
+RUN --mount=type=cache,target=/var/cache/apt \
+apt-get update && apt-get install -y \
+    sudo \
+    curl \
+    gnupg2 \
+    lsb-release \
+    ca-certificates \
+    python3-pip \
+    python3-venv \
+    build-essential \
+    locales \
+    tzdata
+
+# Same here as above. Note opencv-dev version pinning due to mismatch otherwise
+RUN --mount=type=cache,target=/var/cache/apt \
+apt-get update && apt-get install -y \
+   ros-humble-ros-base \
+   ros-dev-tools \
+   ros-humble-image-transport \
+   python3-opencv \
+   ros-humble-ament-cmake \
+   ros-humble-ament-cmake-python \
+   libopencv-dev=4.5.4+dfsg-9ubuntu4 \
+   ros-humble-cv-bridge \
+   ros-humble-depthai-ros
+
+WORKDIR ${CS_WS}
+
+# Building from source -- repo has colcon package but attempts to use system fastcdr which is v1 on humble, but expects v2
+RUN git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git -b v3.0.0 \
+    && cd Micro-XRCE-DDS-Agent \
+    && mkdir build && cd build \
+    && cmake .. \
+    && make -j$(nproc)\
+    && make install \
+    && ldconfig /usr/local/lib/
+
+RUN mkdir -p src && cd src \
+    && git clone https://github.com/PX4/px4_msgs.git -b release/1.15
+
+RUN rosdep update \
+    && rosdep install --from-paths src/px4_msgs --ignore-src -r -y --rosdistro ${ROS_DISTRO}
+
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
+    && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --packages-select px4_msgs --parallel-workers $(nproc)
+
+
+# Used by vision_package to convert BA10
+RUN --mount=type=cache,target=/var/cache/apt \
+apt-get update && apt-get install -y \
+    v4l-utils
+
+# Copying only the files of the ros2_ws directory
+RUN mkdir -p /tmp/repo \
+    && cd /tmp/repo \
+    && git clone --filter=blob:none --sparse https://github.com/CatScanners/find-my-kitten.git . \
+    && git sparse-checkout set ros2_ws \
+    && cp -r /tmp/repo/ros2_ws/* ${CS_WS} \
+    && rm -rf /tmp/repo
+
+# pip requirements from ros2_ws
+RUN pip3 install -r requirements.txt
+
+# Make scripts executable
+RUN chmod +x ./src/vision_package/scripts/*
+
+# Rosdep install on ws
+RUN rosdep update && \
+   rosdep install --from-paths . --ignore-src -r -y --rosdistro ${ROS_DISTRO}
+
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
+    && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --packages-select vision_package px4_handler --parallel-workers $(nproc)
+
+RUN groupadd ${WS_GROUP} && chown -hR root:${WS_GROUP} ${CS_WS} && chmod -R g+rwxs ${CS_WS}
+
+RUN echo "source ${CS_WS}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc
