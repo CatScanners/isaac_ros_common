@@ -1,13 +1,13 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS zed
 
-
 # disable terminal interaction for apt
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
-ENV ZED_ROOT=/workspaces/zed_ws
+ENV WS_GROUP=cs_zed
+ENV CS_ZED_WS=/workspaces/zed_ws
 
 # Download dependencies for zed SDK installation RUN file
 RUN apt-get install -y --no-install-recommends \
@@ -18,6 +18,8 @@ RUN apt-get install -y --no-install-recommends \
     udev \
     sudo \
     apt-transport-https
+
+WORKDIR ${CS_ZED_WS}
 
 # ZED SDK
 # https://nvidia-isaac-ros.github.io/getting_started/hardware_setup/sensors/zed_setup.html
@@ -36,13 +38,15 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # zed-ros2-wrapper
 # https://github.com/stereolabs/zed-ros2-wrapper/blob/master/docker/Dockerfile.l4t-humble
 RUN --mount=type=cache,target=/var/cache/apt \
-    mkdir -p ${ZED_ROOT}/src && cd ${ZED_ROOT}/src \
-    && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper && cd .. \
+    mkdir -p ${CS_ZED_WS}/src && cd ${CS_ZED_WS}/src \
+    && git clone --single-branch -b humble-v4.2.5 --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper && cd .. \
     && apt update \
     && apt-get update \
     && rosdep install --from-paths src/zed-ros2-wrapper --ignore-src -r -y --rosdistro humble
 
-RUN cd ${ZED_ROOT} && source ${ROS_ROOT}/setup.bash && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
+RUN cd ${CS_ZED_WS} && source ${ROS_ROOT}/setup.bash && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc)
+
+RUN chown -hR root:zed ${CS_ZED_WS} && chmod -R g+rwxs ${CS_ZED_WS}
 
 # Might require chmod +x /catscanners/install/local_setup.sh && source /catscanners/install/local_setup.sh
-RUN echo "source ${ZED_ROOT}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc
+RUN echo "source ${CS_ZED_WS}/install/local_setup.sh" | sudo tee --append /etc/bash.bashrc
