@@ -33,6 +33,11 @@ if [[ -f ~/.isaac_ros_common-config ]]; then
     . ~/.isaac_ros_common-config
 fi
 
+# Source a config file from this env var
+if [[ -f "$ISAAC_ROS_COMMON_CONFIG" ]]; then
+    . "$ISAAC_ROS_COMMON_CONFIG"
+fi
+
 # Parse command-line args
 IMAGE_KEY=ros2_humble
 
