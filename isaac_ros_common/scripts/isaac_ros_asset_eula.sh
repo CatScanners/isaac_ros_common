@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 
 
 # Helper script for handling EULA prompts when installing assets. Should be sourced at the beginning
