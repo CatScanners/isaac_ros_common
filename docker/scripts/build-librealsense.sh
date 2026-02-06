@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 # Builds the Intel Realsense library librealsense on a Jetson Nano Development Kit
 # Copyright (c) 2016-21 Jetsonhacks 
 # MIT License

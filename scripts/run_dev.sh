@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 #
 # Copyright (c) 2021-2024, NVIDIA CORPORATION.  All rights reserved.
 #

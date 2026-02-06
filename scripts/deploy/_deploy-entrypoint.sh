@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 #####################################################################################
 # SPDX-FileCopyrightText: Copyright (c) 2019 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
