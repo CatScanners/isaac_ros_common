@@ -221,6 +221,7 @@ done
 # Find pre-built image if available
 if [[ $SKIP_REGISTRY_CHECK -eq 0 && -z "${BASE_IMAGE_NAME}" ]]; then
     # Generate the possible base image names to look for from first image key onward
+    BASE_IMAGE_FULLTAGS=()
     BASE_IMAGE_FULLNAMES=()
     BASE_DOCKERFILES=()
     BASE_DOCKERFILE_CONTEXT_DIRS=()
@@ -253,7 +254,9 @@ if [[ $SKIP_REGISTRY_CHECK -eq 0 && -z "${BASE_IMAGE_NAME}" ]]; then
             BASE_DOCKER_REGISTRY_NAME=${BASE_DOCKER_REGISTRY_NAMES[j]}
             BASE_IMAGE_TAG=${BASE_IMAGE_KEYS[*]}
             BASE_IMAGE_TAG=${BASE_IMAGE_TAG// /.}
-            BASE_IMAGE_FULLNAME="${BASE_DOCKER_REGISTRY_NAME}:${BASE_IMAGE_TAG//./-}_${SOURCE_DOCKERFILE_HASH}"
+            BASE_IMAGE_FULLTAG=${BASE_IMAGE_TAG//./-}_${SOURCE_DOCKERFILE_HASH}
+            BASE_IMAGE_FULLTAGS[i]="$BASE_IMAGE_FULLTAG"
+            BASE_IMAGE_FULLNAME="${BASE_DOCKER_REGISTRY_NAME}:${BASE_IMAGE_FULLTAG}"
             BASE_IMAGE_FULLNAMES+=(${BASE_IMAGE_FULLNAME})
 
             # Remember which index goes with this base image so we can skip those Dockerfiles
@@ -318,8 +321,20 @@ fi
 for (( i=${#DOCKERFILES[@]}-1 ; i>=0 ; i-- )); do
     DOCKERFILE=${DOCKERFILES[i]}
     DOCKERFILE_CONTEXT_DIR=${DOCKERFILE_CONTEXT_DIRS[i]}
+
     IMAGE_NAME=${DOCKERFILE#*"/Dockerfile."}
     IMAGE_NAME="${IMAGE_NAME//./-}-image"
+    IMAGE_NAME_TAG="${IMAGE_NAME}:${BASE_IMAGE_FULLTAGS[i]}"
+
+    # The last image should be the target image name
+    # Use docker context dir script arg only for last image
+    DOCKER_CONTEXT_ARG=${DOCKERFILE_CONTEXT_DIR}
+    if [ $i -eq 0 ]; then
+        IMAGE_NAME=${TARGET_IMAGE_NAME}
+        if [[ ! -z "${DOCKER_CONTEXT_DIR}" ]]; then
+            DOCKER_CONTEXT_ARG=${DOCKER_CONTEXT_DIR}
+        fi
+    fi
 
     # Build the base images in layers first
     BASE_IMAGE_ARG=
@@ -337,24 +352,21 @@ for (( i=${#DOCKERFILES[@]}-1 ; i>=0 ; i-- )); do
         BASE_IMAGE_ARG="--build-arg BASE_IMAGE="${BASE_IMAGE_NAME}""
     fi
 
-    # The last image should be the target image name
-    # Use docker context dir script arg only for last image
-    DOCKER_CONTEXT_ARG=${DOCKERFILE_CONTEXT_DIR}
-    if [ $i -eq 0 ]; then
-        IMAGE_NAME=${TARGET_IMAGE_NAME}
-        if [[ ! -z "${DOCKER_CONTEXT_DIR}" ]]; then
-            DOCKER_CONTEXT_ARG=${DOCKER_CONTEXT_DIR}
-        fi
-    fi
 
     print_warning "Building ${DOCKERFILE} as image: ${IMAGE_NAME} with base: ${BASE_IMAGE_NAME}"
 
     DOCKER_BUILDKIT=${DOCKER_BUILDKIT} docker build -f ${DOCKERFILE} \
      --network host \
-     -t ${IMAGE_NAME} \
+     -t "${IMAGE_NAME_TAG}" \
+     -t "${IMAGE_NAME}:latest" \
      ${BASE_IMAGE_ARG} \
      "${BUILD_ARGS[@]}" \
      "${ADDITIONAL_DOCKER_ARGS[@]}" \
      $@ \
      ${DOCKER_CONTEXT_ARG}
 done
+
+# output final image's name + tag for github actions
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "image=${IMAGE_NAME_TAG}" >> "$GITHUB_OUTPUT"
+fi
