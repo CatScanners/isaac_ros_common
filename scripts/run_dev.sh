@@ -46,10 +46,11 @@ if [[ ! -z "${CONFIG_IMAGE_KEY}" ]]; then
     IMAGE_KEY=$CONFIG_IMAGE_KEY
 fi
 
+BUILDER_ARGS=()
 ISAAC_ROS_DEV_DIR="${ISAAC_ROS_WS}"
 SKIP_IMAGE_BUILD=0
 VERBOSE=0
-VALID_ARGS=$(getopt -o hvd:i:ba: --long help,verbose,isaac_ros_dev_dir:,image_key:,skip_image_build,docker_arg: -- "$@")
+VALID_ARGS=$(getopt -o hvd:i:ba: --long help,verbose,isaac_ros_dev_dir:,image_key:,skip_image_build,builder_arg:,docker_arg: -- "$@")
 eval set -- "$VALID_ARGS"
 while [ : ]; do
   case "$1" in
@@ -64,6 +65,10 @@ while [ : ]; do
     -b | --skip_image_build)
         SKIP_IMAGE_BUILD=1
         shift
+        ;;
+    --builder_arg)
+        BUILDER_ARGS+=("$2")
+        shift 2
         ;;
     -a | --docker_arg)
         DOCKER_ARGS+=("$2")
@@ -206,7 +211,7 @@ print_info "Launching Isaac ROS Dev container with image key ${BASE_IMAGE_KEY}: 
 # Build image to launch
 if [[ $SKIP_IMAGE_BUILD -ne 1 ]]; then
     print_info "Building $BASE_IMAGE_KEY base as image: $BASE_NAME"
-   $ROOT/build_image_layers.sh --image_key "$BASE_IMAGE_KEY" --image_name "$BASE_NAME"
+   $ROOT/build_image_layers.sh --image_key "$BASE_IMAGE_KEY" --image_name "$BASE_NAME" "${BUILDER_ARGS[@]}"
 
     # Check result
     if [ $? -ne 0 ]; then

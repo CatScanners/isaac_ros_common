@@ -219,7 +219,7 @@ until [ ${#IMAGE_IDS[@]} -le 0 ]; do
 done
 
 # Find pre-built image if available
-if [[ $SKIP_REGISTRY_CHECK -eq 0 && -z "${BASE_IMAGE_NAME}" ]]; then
+if [[ -z "${BASE_IMAGE_NAME}" ]]; then
     # Generate the possible base image names to look for from first image key onward
     BASE_IMAGE_FULLTAGS=()
     BASE_IMAGE_FULLNAMES=()
@@ -268,15 +268,24 @@ if [[ $SKIP_REGISTRY_CHECK -eq 0 && -z "${BASE_IMAGE_NAME}" ]]; then
     for (( i=${#BASE_IMAGE_FULLNAMES[@]}-1 ; i>=0 ; i-- )); do
         BASE_IMAGE_FULLNAME=${BASE_IMAGE_FULLNAMES[i]}
 
-        # Check if image exists on remote server
-        print_info "Checking if base image ${BASE_IMAGE_FULLNAME} exists on remote registry"
-        OUTPUT=$(docker manifest inspect ${BASE_IMAGE_FULLNAME} >/dev/null 2>&1 ; echo $?)
+        if [[ $SKIP_REGISTRY_CHECK -eq 0 ]]; then
+            # Check if image exists on remote server
+            print_info "Checking if base image ${BASE_IMAGE_FULLNAME} exists on remote registry"
+            OUTPUT=$(docker manifest inspect ${BASE_IMAGE_FULLNAME} >/dev/null 2>&1 ; echo $?)
+        else
+            print_info "Checking if base image ${BASE_IMAGE_FULLNAME} exists locally"
+            OUTPUT=$(docker image inspect "${BASE_IMAGE_FULLNAME}" &>/dev/null; echo $?)
+        fi
+
         if [[ ${OUTPUT} -eq 0 ]]; then
             BASE_IMAGE_NAME=${BASE_IMAGE_FULLNAME}
             DOCKERFILES=(${DOCKERFILES[@]:0:${BASE_IMAGE_DOCKERFILES_INDICES[i]-1}})
             print_info "Found pre-built base image: ${BASE_IMAGE_FULLNAME}"
-            docker pull ${BASE_IMAGE_FULLNAME}
-            print_info "Finished pulling pre-built base image: ${BASE_IMAGE_FULLNAME}"
+
+            if [[ $SKIP_REGISTRY_CHECK -eq 0 ]]; then
+                docker pull ${BASE_IMAGE_FULLNAME}
+                print_info "Finished pulling pre-built base image: ${BASE_IMAGE_FULLNAME}"
+            fi
             break
         fi
     done
